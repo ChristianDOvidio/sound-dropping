@@ -1,8 +1,9 @@
-// Initialize Pixi.js application
+// Initialize Pixi.js application with anti-aliasing
 const app = new PIXI.Application({
     width: window.innerWidth,
     height: window.innerHeight,
     backgroundColor: 0x000000,
+    antialias: true // Enable anti-aliasing
 });
 
 // Add the canvas to the page
@@ -14,19 +15,12 @@ engine.world.gravity.y = 0.5; // Adjust gravity for a more realistic fall
 const world = engine.world;
 
 // Create a ball
-const ball = Matter.Bodies.circle(window.innerWidth / 2, 100, 20, { restitution: 0.9 });
+const ball = Matter.Bodies.circle(window.innerWidth / 2, 100, 5, { restitution: 0.9 });
 Matter.World.add(world, ball);
-
-// Create a text object to display debug information
-const debugText = new PIXI.Text(`Debug Info`, {
-    fontSize: 24,
-    fill: 0xFFFFFF,
-});
-app.stage.addChild(debugText);
 
 // Create graphics object for ball
 const ballGraphics = new PIXI.Graphics();
-ballGraphics.beginFill(0xFF0000); // Red color for ball
+ballGraphics.beginFill(0xFFFFFF); // White color for ball
 ballGraphics.drawCircle(0, 0, ball.circleRadius);
 app.stage.addChild(ballGraphics);
 
@@ -38,6 +32,7 @@ const graphics = [ballGraphics];
 let isDragging = false;
 let startPoint = null;
 let endPoint = null;
+let tempLineGraphics = null;
 
 app.view.addEventListener('mousedown', (event) => {
     isDragging = true;
@@ -47,6 +42,14 @@ app.view.addEventListener('mousedown', (event) => {
 app.view.addEventListener('mousemove', (event) => {
     if (isDragging) {
         endPoint = { x: event.clientX, y: event.clientY };
+        if (!tempLineGraphics) {
+            tempLineGraphics = new PIXI.Graphics();
+            app.stage.addChild(tempLineGraphics);
+        }
+        tempLineGraphics.clear();
+        tempLineGraphics.lineStyle(4, 0xFFFFFF);
+        tempLineGraphics.moveTo(startPoint.x, startPoint.y);
+        tempLineGraphics.lineTo(endPoint.x, endPoint.y);
     }
 });
 
@@ -54,15 +57,18 @@ app.view.addEventListener('mouseup', (event) => {
     isDragging = false;
     endPoint = { x: event.clientX, y: event.clientY };
     if (startPoint && endPoint) {
+        const dx = endPoint.x - startPoint.x;
+        const dy = endPoint.y - startPoint.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        
         // Create a surface (wall) between startPoint and endPoint
-        const surface = Matter.Bodies.rectangle((startPoint.x + endPoint.x) / 2, (startPoint.y + endPoint.y) / 2, 
-            Math.sqrt(Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)), 20, 
-            { isStatic: true, angle: Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x) });
+        const surface = Matter.Bodies.rectangle(startPoint.x + dx / 2, startPoint.y + dy / 2, length, 5, { isStatic: true, angle });
         Matter.World.add(world, surface);
         
         const surfaceGraphics = new PIXI.Graphics();
         surfaceGraphics.beginFill(0xFFFFFF); // White color for surface
-        surfaceGraphics.drawRect(- (surface.bounds.max.x - surface.bounds.min.x) / 2, -10, surface.bounds.max.x - surface.bounds.min.x, 20);
+        surfaceGraphics.drawRect(-length / 2, -2.5, length, 5);
         surfaceGraphics.position.set(surface.position.x, surface.position.y);
         surfaceGraphics.rotation = surface.angle;
         app.stage.addChild(surfaceGraphics);
@@ -74,22 +80,26 @@ app.view.addEventListener('mouseup', (event) => {
         endPoint = null;
     } else {
         // Drop a ball at the click position
-        const newBall = Matter.Bodies.circle(event.clientX, event.clientY, 20, { restitution: 0.9 });
+        const newBall = Matter.Bodies.circle(event.clientX, event.clientY, 5, { restitution: 0.9 });
         Matter.World.add(world, newBall);
         
         const newBallGraphics = new PIXI.Graphics();
-        newBallGraphics.beginFill(0xFF0000); // Red color for ball
+        newBallGraphics.beginFill(0xFFFFFF); // White color for ball
         newBallGraphics.drawCircle(0, 0, newBall.circleRadius);
         app.stage.addChild(newBallGraphics);
         
         bodies.push(newBall);
         graphics.push(newBallGraphics);
     }
+    
+    if (tempLineGraphics) {
+        tempLineGraphics.clear();
+        app.stage.removeChild(tempLineGraphics);
+        tempLineGraphics = null;
+    }
 });
 
 function update() {
-    debugText.text = `Ball position: ${ball.position.x.toFixed(2)}, ${ball.position.y.toFixed(2)}`;
-    
     // Update positions of all bodies
     for (let i = 0; i < bodies.length; i++) {
         if (graphics[i]) {
