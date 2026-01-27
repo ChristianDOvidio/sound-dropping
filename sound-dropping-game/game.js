@@ -25,6 +25,7 @@ ballGraphics.drawCircle(0, 0, ball.circleRadius);
 app.stage.addChild(ballGraphics);
 
 // Arrays to store created bodies and their graphics
+const balls = [ball];
 const bodies = [ball];
 const graphics = [ballGraphics];
 
@@ -33,6 +34,32 @@ let isDragging = false;
 let startPoint = null;
 let endPoint = null;
 let tempLineGraphics = null;
+
+// Audio context for sound generation
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(frequency) {
+    const oscillator = audioContext.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+    oscillator.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.1); // Stop after 0.1 seconds
+}
+
+// Collision detection
+Matter.Events.on(engine, 'collisionStart', (event) => {
+    const pairs = event.pairs;
+    for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        if ((pair.bodyA === ball && bodies.includes(pair.bodyB)) || (pair.bodyB === ball && bodies.includes(pair.bodyA))) {
+            const surface = pair.bodyA === ball ? pair.bodyB : pair.bodyA;
+            const steepness = Math.abs(surface.angle);
+            const frequency = 200 + steepness * 1000; // Map steepness to frequency range
+            playSound(frequency);
+        }
+    }
+});
 
 app.view.addEventListener('mousedown', (event) => {
     isDragging = true;
@@ -88,6 +115,7 @@ app.view.addEventListener('mouseup', (event) => {
         newBallGraphics.drawCircle(0, 0, newBall.circleRadius);
         app.stage.addChild(newBallGraphics);
         
+        balls.push(newBall);
         bodies.push(newBall);
         graphics.push(newBallGraphics);
     }
@@ -110,7 +138,7 @@ function update() {
         }
         
         // Reset ball position if it goes out of bounds
-        if (bodies[i] === ball && (bodies[i].position.y > window.innerHeight || bodies[i].position.x < 0 || bodies[i].position.x > window.innerWidth)) {
+        if (balls.includes(bodies[i]) && (bodies[i].position.y > window.innerHeight || bodies[i].position.x < 0 || bodies[i].position.x > window.innerWidth)) {
             Matter.Body.setPosition(bodies[i], { x: window.innerWidth / 2, y: 100 });
             Matter.Body.setVelocity(bodies[i], { x: 0, y: 0 });
         }
