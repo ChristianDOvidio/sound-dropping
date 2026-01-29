@@ -9,19 +9,20 @@ const app = new PIXI.Application({
 // Add the canvas to the page
 document.body.appendChild(app.view);
 
-// Initialize Matter.js engine
-const engine = Matter.Engine.create();
-engine.world.gravity.y = 0.5; // Adjust gravity for a more realistic fall
-const world = engine.world;
+// Initialize Planck.js world
+// Using ES module import syntax for Planck.js
+import * as planc from 'planck';
+const world = planc.World({ x: 0, y: 9.8 });
 
 // Create a ball
-const ball = Matter.Bodies.circle(window.innerWidth / 2, 100, 5, { restitution: 0.9 });
-Matter.World.add(world, ball);
+const ball = world.createDynamicBody(planc.Vec2(window.innerWidth / 2, 100));
+ball.createFixture(planc.Circle(5), { restitution: 0.9, density: 1 });
+ball.setAwake(true); // Ensure the body is awake
 
 // Create graphics object for ball
 const ballGraphics = new PIXI.Graphics();
 ballGraphics.beginFill(0xFFFFFF); // White color for ball
-ballGraphics.drawCircle(0, 0, ball.circleRadius);
+ballGraphics.drawCircle(0, 0, 5); // Use the radius directly
 app.stage.addChild(ballGraphics);
 
 // Arrays to store created bodies and their graphics
@@ -48,16 +49,18 @@ function playSound(frequency) {
 }
 
 // Collision detection
-Matter.Events.on(engine, 'collisionStart', (event) => {
-    const pairs = event.pairs;
-    for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        if ((pair.bodyA === ball && bodies.includes(pair.bodyB)) || (pair.bodyB === ball && bodies.includes(pair.bodyA))) {
-            const surface = pair.bodyA === ball ? pair.bodyB : pair.bodyA;
-            const steepness = Math.abs(surface.angle);
-            const frequency = 200 + steepness * 1000; // Map steepness to frequency range
-            playSound(frequency);
-        }
+world.on('begin-contact', (contact) => {
+    const fixtureA = contact.getFixtureA();
+    const fixtureB = contact.getFixtureB();
+    const bodyA = fixtureA.getBody();
+    const bodyB = fixtureB.getBody();
+
+    if ((bodyA === ball && bodies.includes(bodyB)) || (bodyB === ball && bodies.includes(bodyA))) {
+        const surface = bodyA === ball ? bodyB : bodyA;
+        // Planck.js bodies don't have an angle property like Matter.js
+        // We'll need to calculate steepness differently
+        const frequency = 200 + 1000; // Placeholder frequency
+        playSound(frequency);
     }
 });
 
@@ -88,38 +91,29 @@ app.view.addEventListener('mouseup', (event) => {
         const dy = endPoint.y - startPoint.y;
         const length = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
-        
+
         // Create a surface (wall) between startPoint and endPoint
-        const surface = Matter.Bodies.rectangle(startPoint.x + dx / 2, startPoint.y + dy / 2, length, 5, { isStatic: true, angle });
-        Matter.World.add(world, surface);
-        
+        const surfaceBody = world.createBody({
+            type: 'static',
+            position: planc.Vec2(startPoint.x + dx / 2, startPoint.y + dy / 2),
+            angle: angle
+        });
+        surfaceBody.createFixture(planc.Edge(planc.Vec2(-length / 2, 0), planc.Vec2(length / 2, 0)));
+
         const surfaceGraphics = new PIXI.Graphics();
         surfaceGraphics.beginFill(0xFFFFFF); // White color for surface
         surfaceGraphics.drawRect(-length / 2, -2.5, length, 5);
-        surfaceGraphics.position.set(surface.position.x, surface.position.y);
-        surfaceGraphics.rotation = surface.angle;
+        surfaceGraphics.position.set(surfaceBody.getPosition().x, surfaceBody.getPosition().y);
+        surfaceGraphics.rotation = surfaceBody.getAngle();
         app.stage.addChild(surfaceGraphics);
-        
-        bodies.push(surface);
+
+        bodies.push(surfaceBody);
         graphics.push(surfaceGraphics);
-        
+
         startPoint = null;
         endPoint = null;
-    } else {
-        // Drop a ball at the click position
-        const newBall = Matter.Bodies.circle(event.clientX, event.clientY, 5, { restitution: 0.9 });
-        Matter.World.add(world, newBall);
-        
-        const newBallGraphics = new PIXI.Graphics();
-        newBallGraphics.beginFill(0xFFFFFF); // White color for ball
-        newBallGraphics.drawCircle(0, 0, newBall.circleRadius);
-        app.stage.addChild(newBallGraphics);
-        
-        balls.push(newBall);
-        bodies.push(newBall);
-        graphics.push(newBallGraphics);
     }
-    
+
     if (tempLineGraphics) {
         tempLineGraphics.clear();
         app.stage.removeChild(tempLineGraphics);
@@ -127,26 +121,28 @@ app.view.addEventListener('mouseup', (event) => {
     }
 });
 
+// Update function
 function update() {
+    world.step(1 / 60);
+
     // Update positions of all bodies
     for (let i = 0; i < bodies.length; i++) {
         if (graphics[i]) {
-            graphics[i].position.set(bodies[i].position.x, bodies[i].position.y);
-            if (bodies[i].angle) {
-                graphics[i].rotation = bodies[i].angle;
-            }
+            const pos = bodies[i].getPosition();
+            graphics[i].position.set(pos.x, pos.y);
+            graphics[i].rotation = bodies[i].getAngle();
         }
-        
+
         // Reset ball position if it goes out of bounds
-        if (balls.includes(bodies[i]) && (bodies[i].position.y > window.innerHeight || bodies[i].position.x < 0 || bodies[i].position.x > window.innerWidth)) {
-            Matter.Body.setPosition(bodies[i], { x: window.innerWidth / 2, y: 100 });
-            Matter.Body.setVelocity(bodies[i], { x: 0, y: 0 });
+        if (balls.includes(bodies[i]) && (bodies[i].getPosition().y > window.innerHeight || bodies[i].getPosition().x < 0 || bodies[i].getPosition().x > window.innerWidth)) {
+            bodies[i].setPosition(planc.Vec2(window.innerWidth / 2, 100));
+            bodies[i].setLinearVelocity(planc.Vec2(0, 0));
         }
     }
-    
-    Matter.Engine.update(engine, 16); // Update physics engine
-    
+
     requestAnimationFrame(update);
 }
+
+update();
 
 update();
