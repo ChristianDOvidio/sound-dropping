@@ -116,7 +116,7 @@ class SoundManager {
             source.connect(sound.gainNode);
             sound.gainNode.gain.value = 1; // Reset gain
             source.start();
-            source.stop(audioContext.currentTime + currentSoundBuffer.duration); // Stop after the sound duration
+            source.stop(audioContext.currentTime + currentSoundBuffer.duration + 0.1); // Stop after the sound duration
             sound.available = false;
             setTimeout(() => {
                 sound.available = true;
