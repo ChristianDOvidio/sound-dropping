@@ -1,23 +1,50 @@
+import * as planc from 'planck';
+
 // Initialize Pixi.js application with anti-aliasing
 const app = new PIXI.Application({
     width: window.innerWidth,
     height: window.innerHeight,
     backgroundColor: 0x000000,
-    antialias: true // Enable anti-aliasing
+    antialias: true
 });
 
 // Add the canvas to the page
 document.body.appendChild(app.view);
 
-// Initialize Planck.js world
-// Using ES module import syntax for Planck.js
-import * as planc from 'planck';
-const world = planc.World({ x: 0, y: 9.8 });
+// Get the gravity slider element
+const gravitySlider = document.getElementById('gravity-slider');
+let gravityValue = parseFloat(gravitySlider.value);
+
+// Get the respawn rate slider element
+const respawnSlider = document.getElementById('respawn-slider');
+let respawnRate = parseFloat(respawnSlider.value);
+
+// Initialize Planck.js world with initial gravity
+const world = planc.World({ x: 0, y: gravityValue });
+
+// Add event listener to update gravity when slider changes
+gravitySlider.addEventListener('input', (event) => {
+    gravityValue = parseFloat(event.target.value);
+    world.setGravity({ x: 0, y: gravityValue });
+});
+
+// Add event listener to update respawn rate when slider changes
+respawnSlider.addEventListener('input', (event) => {
+    respawnRate = parseFloat(event.target.value);
+});
 
 // Create a ball
-const ball = world.createDynamicBody(planc.Vec2(window.innerWidth / 2, 100));
-ball.createFixture(planc.Circle(5), { restitution: 0.9, density: 1 });
+let ball = world.createDynamicBody(planc.Vec2(window.innerWidth / 2, 100));
+const ballFixture = ball.createFixture(planc.Circle(5), { restitution: 0.9, density: 1 });
 ball.setAwake(true); // Ensure the body is awake
+
+// Set collision category and mask for balls
+const BALL_CATEGORY = 0x0002;
+const BALL_MASK = 0x0001; // Collide with surfaces (category 0x0001)
+ballFixture.setFilterData({
+  categoryBits: BALL_CATEGORY,
+  maskBits: BALL_MASK,
+});
 
 // Create graphics object for ball
 const ballGraphics = new PIXI.Graphics();
@@ -55,12 +82,11 @@ world.on('begin-contact', (contact) => {
     const bodyA = fixtureA.getBody();
     const bodyB = fixtureB.getBody();
 
-    if ((bodyA === ball && bodies.includes(bodyB)) || (bodyB === ball && bodies.includes(bodyA))) {
-        const surface = bodyA === ball ? bodyB : bodyA;
+    // Check if one body is a ball and the other is a surface (not a ball)
+    if ((balls.includes(bodyA) && !balls.includes(bodyB)) || (!balls.includes(bodyA) && balls.includes(bodyB))) {
+        const surface = balls.includes(bodyA) ? bodyB : bodyA;
         const surfaceAngle = surface.getAngle();
-        // Calculate steepness based on the angle
         const steepness = Math.abs(Math.sin(surfaceAngle));
-        // Map steepness to frequency range (200 Hz to 1200 Hz)
         const frequency = 200 + (steepness * 1000);
         playSound(frequency);
     }
@@ -123,7 +149,7 @@ app.view.addEventListener('mouseup', (event) => {
     }
 });
 
-// Update function
+// Update function remains the same
 function update() {
     world.step(1 / 60);
 
@@ -135,16 +161,48 @@ function update() {
             graphics[i].rotation = bodies[i].getAngle();
         }
 
-        // Reset ball position if it goes out of bounds
+        // Remove ball when it leaves screen
         if (balls.includes(bodies[i]) && (bodies[i].getPosition().y > window.innerHeight || bodies[i].getPosition().x < 0 || bodies[i].getPosition().x > window.innerWidth)) {
-            bodies[i].setPosition(planc.Vec2(window.innerWidth / 2, 100));
-            bodies[i].setLinearVelocity(planc.Vec2(0, 0));
+            world.destroyBody(bodies[i]);
+            app.stage.removeChild(graphics[i]);
+            balls.splice(i, 1);
+            bodies.splice(i, 1);
+            graphics.splice(i, 1);
         }
     }
-
     requestAnimationFrame(update);
 }
 
 update();
 
-update();
+// Additional logic for respawning balls at intervals based on respawnRate
+let lastSpawnTime = Date.now();
+function spawnBall() {
+    const currentTime = Date.now();
+    if (currentTime - lastSpawnTime >= (1 / respawnRate) * 1000) {
+        lastSpawnTime = currentTime;
+
+        // Create a new ball
+        const newBall = world.createDynamicBody(planc.Vec2(window.innerWidth / 2, 100));
+        const newBallFixture = newBall.createFixture(planc.Circle(5), { restitution: 0.9, density: 1 });
+        newBall.setAwake(true);
+
+        // Set collision category and mask for new balls
+        newBallFixture.setFilterData({
+          categoryBits: BALL_CATEGORY,
+          maskBits: BALL_MASK,
+        });
+
+        const newBallGraphics = new PIXI.Graphics();
+        newBallGraphics.beginFill(0xFFFFFF); // White color for ball
+        newBallGraphics.drawCircle(0, 0, 5);
+        app.stage.addChild(newBallGraphics);
+
+        balls.push(newBall);
+        bodies.push(newBall);
+        graphics.push(newBallGraphics);
+    }
+    requestAnimationFrame(spawnBall);
+}
+
+spawnBall();
