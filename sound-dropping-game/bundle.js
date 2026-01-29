@@ -11659,32 +11659,58 @@
   // Variables to track spawn circle dragging
   let isSpawnCircleDragging = false;
 
-  // Audio context for sound generation
+  // Audio context and sound management
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const maxConcurrentSounds = 10;
+  const soundPool = [];
 
-  function playSound(frequency) {
-      const oscillator = audioContext.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
-      oscillator.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.1); // Stop after 0.1 seconds
+  class SoundManager {
+      constructor(maxSounds) {
+          this.maxSounds = maxSounds;
+          for (let i = 0; i < maxSounds; i++) {
+              const oscillator = audioContext.createOscillator();
+              oscillator.type = 'sine';
+              const gainNode = audioContext.createGain();
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              soundPool.push({ oscillator, gainNode, available: true });
+          }
+      }
+
+      playSound(frequency) {
+          const sound = soundPool.find(s => s.available);
+          if (sound) {
+              sound.oscillator.disconnect(); // Disconnect the old oscillator
+              sound.oscillator = audioContext.createOscillator(); // Create a new oscillator
+              sound.oscillator.type = 'sine';
+              sound.oscillator.frequency.value = frequency;
+              sound.oscillator.connect(sound.gainNode);
+              sound.gainNode.gain.value = 1; // Reset gain
+              sound.oscillator.start();
+              sound.oscillator.stop(audioContext.currentTime + 0.1); // Stop after 0.1 seconds
+              sound.available = false;
+              setTimeout(() => {
+                  sound.available = true;
+              }, 100); // Mark as available after 100ms
+          }
+      }
   }
 
-  // Collision detection
+  const soundManager = new SoundManager(maxConcurrentSounds);
+
+  // Collision detection with sound playback
   world.on('begin-contact', (contact) => {
       const fixtureA = contact.getFixtureA();
       const fixtureB = contact.getFixtureB();
       const bodyA = fixtureA.getBody();
       const bodyB = fixtureB.getBody();
 
-      // Check if one body is a ball and the other is a surface (not a ball)
       if ((balls.includes(bodyA) && !balls.includes(bodyB)) || (!balls.includes(bodyA) && balls.includes(bodyB))) {
           const surface = balls.includes(bodyA) ? bodyB : bodyA;
           const surfaceAngle = surface.getAngle();
           const steepness = Math.abs(Math.sin(surfaceAngle));
           const frequency = 200 + (steepness * 1000);
-          playSound(frequency);
+          soundManager.playSound(frequency);
       }
   });
 
