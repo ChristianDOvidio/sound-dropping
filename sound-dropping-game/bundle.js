@@ -11698,10 +11698,62 @@
       if (distanceToSpawnCircle <= 5) { // Radius of spawn circle
           isSpawnCircleDragging = true;
       } else {
-          isDragging = true;
-          startPoint = mousePosition;
+          // Check if clicking on an existing surface
+          let clickedSurfaceIndex = null;
+          for (let i = 1; i < bodies.length; i++) { // Start from 1 to skip the ball
+              const body = bodies[i];
+              const surfaceGraphics = graphics[i];
+              if (body.getType() === 'static') { // Check if it's a surface
+                  const surfacePos = body.getPosition();
+                  const surfaceAngle = body.getAngle();
+  const surfaceHalfLength = surfaceGraphics.width / 2;
+
+                  // Calculate world coordinates of surface endpoints
+                  const endpoint1 = {
+                      x: surfacePos.x + Math.cos(surfaceAngle) * surfaceHalfLength - Math.sin(surfaceAngle) * 2.5,
+                      y: surfacePos.y + Math.sin(surfaceAngle) * surfaceHalfLength + Math.cos(surfaceAngle) * 2.5
+                  };
+                  const endpoint2 = {
+                      x: surfacePos.x + Math.cos(surfaceAngle) * -surfaceHalfLength - Math.sin(surfaceAngle) * 2.5,
+                      y: surfacePos.y + Math.sin(surfaceAngle) * -surfaceHalfLength + Math.cos(surfaceAngle) * 2.5
+                  };
+
+                  // Check if mouse is close to the surface
+                  const distance = distanceToLineSegment(mousePosition, endpoint1, endpoint2);
+                  if (distance < 5) { // Consider it a click if within 5 pixels
+                      clickedSurfaceIndex = i;
+                      break;
+                  }
+              }
+          }
+
+          if (clickedSurfaceIndex !== null) {
+              // Remove the surface
+              const body = bodies[clickedSurfaceIndex];
+              world.destroyBody(body);
+              app.stage.removeChild(graphics[clickedSurfaceIndex]);
+              bodies.splice(clickedSurfaceIndex, 1);
+              graphics.splice(clickedSurfaceIndex, 1);
+          } else {
+              isDragging = true;
+              startPoint = mousePosition;
+          }
       }
   });
+
+  // Function to calculate distance from a point to a line segment
+  function distanceToLineSegment(point, lineStart, lineEnd) {
+      const lineLengthSquared = Math.pow(lineEnd.x - lineStart.x, 2) + Math.pow(lineEnd.y - lineStart.y, 2);
+      if (lineLengthSquared === 0) return Math.sqrt(Math.pow(point.x - lineStart.x, 2) + Math.pow(point.y - lineStart.y, 2));
+
+      let t = ((point.x - lineStart.x) * (lineEnd.x - lineStart.x) + (point.y - lineStart.y) * (lineEnd.y - lineStart.y)) / lineLengthSquared;
+      t = Math.max(0, Math.min(1, t));
+      const nearestPointOnLine = {
+          x: lineStart.x + t * (lineEnd.x - lineStart.x),
+          y: lineStart.y + t * (lineEnd.y - lineStart.y)
+      };
+      return Math.sqrt(Math.pow(point.x - nearestPointOnLine.x, 2) + Math.pow(point.y - nearestPointOnLine.y, 2));
+  }
 
   app.view.addEventListener('mousemove', (event) => {
       if (isDragging) {
@@ -11744,7 +11796,6 @@
           surfaceGraphics.position.set(surfaceBody.getPosition().x, surfaceBody.getPosition().y);
           surfaceGraphics.rotation = surfaceBody.getAngle();
           app.stage.addChild(surfaceGraphics);
-
           bodies.push(surfaceBody);
           graphics.push(surfaceGraphics);
 
