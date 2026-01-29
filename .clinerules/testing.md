@@ -1,0 +1,1 @@
+*  When testing final changes to the code, if the test would require interacting with the browser, or analyzing the browsers image, ask the human to validate the changes rather than trying to validate the changes via Cline.

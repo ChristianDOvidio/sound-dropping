@@ -11640,9 +11640,12 @@
       const bodyB = fixtureB.getBody();
 
       if ((bodyA === ball && bodies.includes(bodyB)) || (bodyB === ball && bodies.includes(bodyA))) {
-          // Planck.js bodies don't have an angle property like Matter.js
-          // We'll need to calculate steepness differently
-          const frequency = 200 + 1000; // Placeholder frequency
+          const surface = bodyA === ball ? bodyB : bodyA;
+          const surfaceAngle = surface.getAngle();
+          // Calculate steepness based on the angle
+          const steepness = Math.abs(Math.sin(surfaceAngle));
+          // Map steepness to frequency range (200 Hz to 1200 Hz)
+          const frequency = 200 + (steepness * 1000);
           playSound(frequency);
       }
   });
