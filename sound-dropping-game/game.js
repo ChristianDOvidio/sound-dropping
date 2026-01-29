@@ -63,6 +63,16 @@ let startPoint = null;
 let endPoint = null;
 let tempLineGraphics = null;
 
+// Create spawn circle graphics
+const spawnCircleGraphics = new PIXI.Graphics();
+spawnCircleGraphics.lineStyle(2, 0xD3D3D3); // Light grey color for spawn circle
+spawnCircleGraphics.drawCircle(0, 0, 5); // Same diameter as the balls
+spawnCircleGraphics.position.set(window.innerWidth / 2, 100); // Initial position
+app.stage.addChild(spawnCircleGraphics);
+
+// Variables to track spawn circle dragging
+let isSpawnCircleDragging = false;
+
 // Audio context for sound generation
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -92,9 +102,19 @@ world.on('begin-contact', (contact) => {
     }
 });
 
+// Check if mousedown is on the spawn circle
 app.view.addEventListener('mousedown', (event) => {
-    isDragging = true;
-    startPoint = { x: event.clientX, y: event.clientY };
+    const mousePosition = { x: event.clientX, y: event.clientY };
+    const distanceToSpawnCircle = Math.sqrt(
+        Math.pow(mousePosition.x - spawnCircleGraphics.position.x, 2) +
+        Math.pow(mousePosition.y - spawnCircleGraphics.position.y, 2)
+    );
+    if (distanceToSpawnCircle <= 5) { // Radius of spawn circle
+        isSpawnCircleDragging = true;
+    } else {
+        isDragging = true;
+        startPoint = mousePosition;
+    }
 });
 
 app.view.addEventListener('mousemove', (event) => {
@@ -109,10 +129,14 @@ app.view.addEventListener('mousemove', (event) => {
         tempLineGraphics.moveTo(startPoint.x, startPoint.y);
         tempLineGraphics.lineTo(endPoint.x, endPoint.y);
     }
+    if (isSpawnCircleDragging) {
+        spawnCircleGraphics.position.set(event.clientX, event.clientY);
+    }
 });
 
 app.view.addEventListener('mouseup', (event) => {
     isDragging = false;
+    isSpawnCircleDragging = false;
     endPoint = { x: event.clientX, y: event.clientY };
     if (startPoint && endPoint) {
         const dx = endPoint.x - startPoint.x;
@@ -183,7 +207,8 @@ function spawnBall() {
         lastSpawnTime = currentTime;
 
         // Create a new ball
-        const newBall = world.createDynamicBody(planc.Vec2(window.innerWidth / 2, 100));
+        const spawnPosition = spawnCircleGraphics.position;
+        const newBall = world.createDynamicBody(planc.Vec2(spawnPosition.x, spawnPosition.y));
         const newBallFixture = newBall.createFixture(planc.Circle(5), { restitution: 0.9, density: 1 });
         newBall.setAwake(true);
 
