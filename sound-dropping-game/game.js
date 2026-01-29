@@ -76,33 +76,42 @@ let isSpawnCircleDragging = false;
 
 // Audio context and sound management
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-const maxConcurrentSounds = 10;
+const maxConcurrentSounds = 100;
 const soundPool = [];
+
+let guitarNoteBuffer = null;
+
+// Load guitar note sample
+fetch('assets/guitar_note_D.wav')
+  .then(response => response.arrayBuffer())
+  .then(buffer => audioContext.decodeAudioData(buffer))
+  .then(audioBuffer => {
+    guitarNoteBuffer = audioBuffer;
+  })
+  .catch(error => console.error('Error loading guitar note sample:', error));
 
 class SoundManager {
     constructor(maxSounds) {
         this.maxSounds = maxSounds;
         for (let i = 0; i < maxSounds; i++) {
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
             const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-            soundPool.push({ oscillator, gainNode, available: true });
+            soundPool.push({ gainNode, available: true });
         }
     }
 
-    playSound(frequency) {
+    playSound(rate) {
+        if (!guitarNoteBuffer) return;
+
         const sound = soundPool.find(s => s.available);
         if (sound) {
-            sound.oscillator.disconnect(); // Disconnect the old oscillator
-            sound.oscillator = audioContext.createOscillator(); // Create a new oscillator
-            sound.oscillator.type = 'sine';
-            sound.oscillator.frequency.value = frequency;
-            sound.oscillator.connect(sound.gainNode);
+            const source = audioContext.createBufferSource();
+            source.buffer = guitarNoteBuffer;
+            source.playbackRate.value = rate;
+            source.connect(sound.gainNode);
             sound.gainNode.gain.value = 1; // Reset gain
-            sound.oscillator.start();
-            sound.oscillator.stop(audioContext.currentTime + 0.1); // Stop after 0.1 seconds
+            source.start();
+            source.stop(audioContext.currentTime + guitarNoteBuffer.duration); // Stop after the sound duration
             sound.available = false;
             setTimeout(() => {
                 sound.available = true;
@@ -124,8 +133,8 @@ world.on('begin-contact', (contact) => {
         const surface = balls.includes(bodyA) ? bodyB : bodyA;
         const surfaceAngle = surface.getAngle();
         const steepness = Math.abs(Math.sin(surfaceAngle));
-        const frequency = 200 + (steepness * 1000);
-        soundManager.playSound(frequency);
+        const playbackRate = 0.5 + (steepness * 2);
+        soundManager.playSound(playbackRate);
     }
 });
 
@@ -147,7 +156,7 @@ app.view.addEventListener('mousedown', (event) => {
             if (body.getType() === 'static') { // Check if it's a surface
                 const surfacePos = body.getPosition();
                 const surfaceAngle = body.getAngle();
-const surfaceHalfLength = surfaceGraphics.width / 2;
+                const surfaceHalfLength = surfaceGraphics.width / 2;
 
                 // Calculate world coordinates of surface endpoints
                 const endpoint1 = {
