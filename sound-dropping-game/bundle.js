@@ -11664,16 +11664,21 @@
   const maxConcurrentSounds = 100;
   const soundPool = [];
 
-  let guitarNoteBuffer = null;
+  let currentSoundBuffer = null;
+  let soundBuffers = {};
 
-  // Load guitar note sample
-  fetch('assets/guitar_note_D.wav')
-    .then(response => response.arrayBuffer())
-    .then(buffer => audioContext.decodeAudioData(buffer))
-    .then(audioBuffer => {
-      guitarNoteBuffer = audioBuffer;
-    })
-    .catch(error => console.error('Error loading guitar note sample:', error));
+  // Load sound samples
+  const soundTypes = ['guitar', 'piano', 'synth', 'rain'];
+  soundTypes.forEach(type => {
+    fetch(`assets/${type}.wav`)
+      .then(response => response.arrayBuffer())
+      .then(buffer => audioContext.decodeAudioData(buffer))
+      .then(audioBuffer => {
+        soundBuffers[type] = audioBuffer;
+        if (!currentSoundBuffer) currentSoundBuffer = audioBuffer;
+      })
+      .catch(error => console.error(`Error loading ${type} note sample:`, error));
+  });
 
   class SoundManager {
       constructor(maxSounds) {
@@ -11686,28 +11691,39 @@
       }
 
       playSound(rate) {
-          if (!guitarNoteBuffer) return;
+          if (!currentSoundBuffer) return;
 
           const sound = soundPool.find(s => s.available);
           if (sound) {
               const source = audioContext.createBufferSource();
-              source.buffer = guitarNoteBuffer;
+              source.buffer = currentSoundBuffer;
               source.playbackRate.value = rate;
               source.connect(sound.gainNode);
               sound.gainNode.gain.value = 1; // Reset gain
               source.start();
-              source.stop(audioContext.currentTime + guitarNoteBuffer.duration); // Stop after the sound duration
+              source.stop(audioContext.currentTime + currentSoundBuffer.duration); // Stop after the sound duration
               sound.available = false;
               setTimeout(() => {
                   sound.available = true;
               }, 100); // Mark as available after 100ms
           }
       }
+
+      setSoundType(type) {
+        currentSoundBuffer = soundBuffers[type];
+      }
   }
 
   const soundManager = new SoundManager(maxConcurrentSounds);
 
-  // Collision detection with sound playback
+  // Add event listeners to radio buttons
+  document.querySelectorAll('input[name="sound-type"]').forEach(radio => {
+    radio.addEventListener('change', (event) => {
+      soundManager.setSoundType(event.target.value);
+    });
+  });
+
+  // Collision detection with sound playback remains the same
   world.on('begin-contact', (contact) => {
       const fixtureA = contact.getFixtureA();
       const fixtureB = contact.getFixtureB();

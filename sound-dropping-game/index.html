@@ -17,10 +17,26 @@
     </style>
 </head>
 <body>
-    <label for="gravity-slider" style="position: absolute; top: 0px; left: 90px; z-index: 1; color: white; font-family: Verdana;">Gravity</label>
-    <input type="range" id="gravity-slider" min="0.1" max="100" value="9.8" step="0.1" style="position: absolute; top: 20px; left: 10px; z-index: 1; width: 200px; filter: grayscale(100%);">
-    <label for="respawn-slider" style="position: absolute; top: 0px; left: 310px; z-index: 1; color: white; font-family: Verdana;">Respawn</label>
-    <input type="range" id="respawn-slider" min="0.1" max="2" value=".5" step="0.1" style="position: absolute; top: 20px; left: 240px; z-index: 1; width: 200px; filter: grayscale(100%);">
+    <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 1;">
+        <div style="display: flex; align-items: center;">
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 20px;">
+                <label for="gravity-slider" style="color: white; font-family: Verdana;">Gravity</label>
+                <input type="range" id="gravity-slider" min="0.1" max="100" value="9.8" step="0.1" style="width: 200px; filter: grayscale(100%);">
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 20px;">
+                <label for="respawn-slider" style="color: white; font-family: Verdana;">Respawn</label>
+                <input type="range" id="respawn-slider" min="0.1" max="2" value=".5" step="0.1" style="width: 200px; filter: grayscale(100%);">
+            </div>
+            <div style="display: flex; align-items: center;">
+                <input type="radio" id="guitar-sound" name="sound-type" value="guitar" style="margin-left: 10px;">
+                <label for="guitar-sound" style="color: white; font-family: Verdana;">Guitar</label>
+                <input type="radio" id="synth-sound" name="sound-type" value="synth" checked style="margin-left: 10px;">
+                <label for="synth-sound" style="color: white; font-family: Verdana;">Synth</label>
+                <input type="radio" id="rain-sound" name="sound-type" value="rain" style="margin-left: 10px;">
+                <label for="rain-sound" style="color: white; font-family: Verdana;">Rain</label>
+            </div>
+        </div>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <script src="bundle.js"></script>
