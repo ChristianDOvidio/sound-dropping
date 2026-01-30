@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "outputDirectory": "sound-dropping-game",
+  "outputDirectory": ".",
   "public": true,
   "routes": [
     {
