@@ -11668,7 +11668,7 @@
   let soundBuffers = {};
 
   // Load sound samples
-  const soundTypes = ['guitar', 'piano', 'synth', 'rain'];
+  const soundTypes = ['guitar', 'synth', 'rain'];
   soundTypes.forEach(type => {
     fetch(`assets/${type}.wav`)
       .then(response => response.arrayBuffer())
@@ -11701,7 +11701,7 @@
               source.connect(sound.gainNode);
               sound.gainNode.gain.value = 1; // Reset gain
               source.start();
-              source.stop(audioContext.currentTime + currentSoundBuffer.duration + 0.1); // Stop after the sound duration
+              source.stop(audioContext.currentTime + currentSoundBuffer.duration + 0.2); // Stop after the sound duration
               sound.available = false;
               setTimeout(() => {
                   sound.available = true;
